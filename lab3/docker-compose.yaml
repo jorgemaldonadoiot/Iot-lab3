@@ -1,0 +1,72 @@
+
+#-----------------------------------------------------------------------------
+
+version: "3.2"
+services:
+  servidor:
+    container_name: rabbit_mqtt
+    image: rabbit_image
+    restart: always
+    ports:
+      - "5672:5672"
+      - "1883:1883"
+      - "15672:15672"
+    build:
+      context: .
+      dockerfile: rabbit/Dockerfile
+    environment:
+            - "RABBITMQ_DEFAULT_PASS=pass"
+            - "RABBITMQ_DEFAULT_USER=user"
+    networks:
+      default:
+        aliases:
+          - rabbit 
+
+#------------------------------------------------------------------------------------
+  influx:
+    container_name: datos_influx
+    image: influx_image
+    restart: always
+    ports:
+      - "8086:8086"
+    build:
+      context: .
+      dockerfile: influx/Dockerfile
+    env_file:
+      - influx/config.env
+    networks:
+      default:
+        aliases:
+          - influx
+
+#----------------------------------------------------------------------------
+  telegra:
+    container_name: datos_telegra
+    image: telegra_image
+    restart: always
+    build:
+      context: .
+      dockerfile: telegra/Dockerfile
+    volumes:
+      - ./telegra/setup.conf:/etc/telegraf/telegraf.conf
+    depends_on:
+      - influx
+      - servidor
+#----------------------------------------------------------------------------
+  gui:
+    container_name: grafana
+    image: grafana_image
+    restart: always
+    ports:
+    - "3000:3000"
+    build:
+      context: .
+      dockerfile: grafana/Dockerfile
+    volumes:
+      - ./grafana\influx.yml:/etc/grafana/provisioning/datasources/influx.yml
+      - ./grafana/grafana.yml:/etc/grafana/provisioning/dashboards/grafana.yml
+      - ./grafana/:/var/lib/grafana/dashboards/
+    depends_on:
+      - influx
+    env_file:
+      - grafana/config.env
